@@ -1,1 +1,0 @@
-//! http://mathworld.wolfram.com/PierpontPrime.html

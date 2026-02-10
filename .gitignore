@@ -13,3 +13,4 @@ Untitled.ipynb
 # Antlr
 .antlr/
 *.jar
+node_modules/
