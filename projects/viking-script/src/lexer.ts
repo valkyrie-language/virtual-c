@@ -62,29 +62,52 @@ export class Lexer {
 
     // Single-char tokens
     switch (char) {
-      case "+": return this.lexSingleChar(SyntaxKind.Plus);
-      case "-": return this.lexSingleChar(SyntaxKind.Minus);
-      case "*": return this.lexSingleChar(SyntaxKind.Star);
-      case "/": return this.lexSingleChar(SyntaxKind.Slash);
-      case "%": return this.lexSingleChar(SyntaxKind.Percent);
-      case "&": return this.lexSingleChar(SyntaxKind.Ampersand);
-      case "|": return this.lexSingleChar(SyntaxKind.Pipe);
-      case "^": return this.lexSingleChar(SyntaxKind.Caret);
-      case "!": return this.lexSingleChar(SyntaxKind.Exclamation);
-      case "?": return this.lexSingleChar(SyntaxKind.Question);
-      case "=": return this.lexSingleChar(SyntaxKind.Equal);
-      case "<": return this.lexSingleChar(SyntaxKind.LessThan);
-      case ">": return this.lexSingleChar(SyntaxKind.GreaterThan);
-      case ".": return this.lexSingleChar(SyntaxKind.Dot);
-      case ",": return this.lexSingleChar(SyntaxKind.Comma);
-      case ":": return this.lexSingleChar(SyntaxKind.Colon);
-      case ";": return this.lexSingleChar(SyntaxKind.Semicolon);
-      case "(": return this.lexSingleChar(SyntaxKind.OpenParen);
-      case ")": return this.lexSingleChar(SyntaxKind.CloseParen);
-      case "[": return this.lexSingleChar(SyntaxKind.OpenBracket);
-      case "]": return this.lexSingleChar(SyntaxKind.CloseBracket);
-      case "{": return this.lexSingleChar(SyntaxKind.OpenBrace);
-      case "}": return this.lexSingleChar(SyntaxKind.CloseBrace);
+      case "+":
+        return this.lexSingleChar(SyntaxKind.Plus);
+      case "-":
+        return this.lexSingleChar(SyntaxKind.Minus);
+      case "*":
+        return this.lexSingleChar(SyntaxKind.Star);
+      case "/":
+        return this.lexSingleChar(SyntaxKind.Slash);
+      case "%":
+        return this.lexSingleChar(SyntaxKind.Percent);
+      case "&":
+        return this.lexSingleChar(SyntaxKind.Ampersand);
+      case "|":
+        return this.lexSingleChar(SyntaxKind.Pipe);
+      case "^":
+        return this.lexSingleChar(SyntaxKind.Caret);
+      case "!":
+        return this.lexSingleChar(SyntaxKind.Exclamation);
+      case "?":
+        return this.lexSingleChar(SyntaxKind.Question);
+      case "=":
+        return this.lexSingleChar(SyntaxKind.Equal);
+      case "<":
+        return this.lexSingleChar(SyntaxKind.LessThan);
+      case ">":
+        return this.lexSingleChar(SyntaxKind.GreaterThan);
+      case ".":
+        return this.lexSingleChar(SyntaxKind.Dot);
+      case ",":
+        return this.lexSingleChar(SyntaxKind.Comma);
+      case ":":
+        return this.lexSingleChar(SyntaxKind.Colon);
+      case ";":
+        return this.lexSingleChar(SyntaxKind.Semicolon);
+      case "(":
+        return this.lexSingleChar(SyntaxKind.OpenParen);
+      case ")":
+        return this.lexSingleChar(SyntaxKind.CloseParen);
+      case "[":
+        return this.lexSingleChar(SyntaxKind.OpenBracket);
+      case "]":
+        return this.lexSingleChar(SyntaxKind.CloseBracket);
+      case "{":
+        return this.lexSingleChar(SyntaxKind.OpenBrace);
+      case "}":
+        return this.lexSingleChar(SyntaxKind.CloseBrace);
     }
 
     this.pos++;
