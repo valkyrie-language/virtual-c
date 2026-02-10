@@ -1,0 +1,24 @@
+{
+  "name": "@valkyrie-language/viking-script",
+  "version": "0.1.0",
+  "description": "Pure TypeScript implementation of Valkyrie",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --watch --dts",
+    "test": "vitest run",
+    "lint": "biome check src",
+    "format": "biome format src --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
