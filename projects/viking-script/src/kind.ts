@@ -38,6 +38,8 @@ export enum SyntaxKind {
     Break,
     Continue,
     Type,
+    Extends,
+    Implements,
     As,
     Is,
     In,

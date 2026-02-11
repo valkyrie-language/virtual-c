@@ -28,17 +28,28 @@ export class Parser {
                 return this.parseReturnStatement();
             case SyntaxKind.If:
                 return this.parseIfStatement();
-            case SyntaxKind.For:
-                return this.parseForStatement();
-            case SyntaxKind.While:
-                return this.parseWhileStatement();
+            case SyntaxKind.Loop:
+                return this.parseLoopStatement();
+            case SyntaxKind.Class:
+                return this.parseClassDeclaration();
+            case SyntaxKind.Trait:
+                return this.parseTraitDeclaration();
             case SyntaxKind.OpenBrace:
-                // For simplicity, let's treat braces as a block expression or statement
-                // In a real Valkyrie, it would be more complex
-                return this.parseExpressionStatement();
+                return this.parseBlock();
             default:
                 return this.parseExpressionStatement();
         }
+    }
+
+    private parseBlock(): AST.BlockStatement {
+        this.consume(SyntaxKind.OpenBrace);
+        const body: AST.Statement[] = [];
+        while (this.current().kind !== SyntaxKind.CloseBrace && this.current().kind !== SyntaxKind.EndOfFile) {
+            const stmt = this.parseStatement();
+            if (stmt) body.push(stmt);
+        }
+        this.consume(SyntaxKind.CloseBrace);
+        return { kind: "BlockStatement", body };
     }
 
     private parseLetStatement(): AST.LetStatement {
@@ -72,29 +83,115 @@ export class Parser {
         return { kind: "IfStatement", condition, thenBranch, elseBranch };
     }
 
-    private parseForStatement(): AST.ForStatement {
-        this.consume(SyntaxKind.For);
-        const iterator = this.consume(SyntaxKind.Identifier).text;
-        this.consume(SyntaxKind.In);
-        const iterable = this.parseExpression();
-        const body = this.parseBlockOrStatement();
-        return { kind: "ForStatement", iterator, iterable, body };
+    private parseLoopStatement(): AST.LoopStatement {
+        this.consume(SyntaxKind.Loop);
+        let pattern: string | undefined;
+        let iterable: AST.Expression | undefined;
+
+        if (this.current().kind !== SyntaxKind.OpenBrace) {
+            pattern = this.consume(SyntaxKind.Identifier).text;
+            this.consume(SyntaxKind.In);
+            iterable = this.parseExpression();
+        }
+
+        const body = this.parseBlock();
+        return { kind: "LoopStatement", pattern, iterable, body };
     }
 
-    private parseWhileStatement(): AST.WhileStatement {
-        this.consume(SyntaxKind.While);
-        const condition = this.parseExpression();
-        const body = this.parseBlockOrStatement();
-        return { kind: "WhileStatement", condition, body };
+    private parseClassDeclaration(): AST.ClassDeclaration {
+        this.consume(SyntaxKind.Class);
+        const name = this.consume(SyntaxKind.Identifier).text;
+
+        let superClass: string | undefined;
+        if (this.optionalConsume(SyntaxKind.Extends)) {
+            superClass = this.consume(SyntaxKind.Identifier).text;
+        }
+
+        const implementsTraits: string[] = [];
+        if (this.optionalConsume(SyntaxKind.Implements)) {
+            do {
+                implementsTraits.push(this.consume(SyntaxKind.Identifier).text);
+            } while (this.optionalConsume(SyntaxKind.Comma));
+        }
+
+        this.consume(SyntaxKind.OpenBrace);
+        const members: AST.ClassMember[] = [];
+        while (this.current().kind !== SyntaxKind.CloseBrace && this.current().kind !== SyntaxKind.EndOfFile) {
+            members.push(this.parseClassMember());
+        }
+        this.consume(SyntaxKind.CloseBrace);
+
+        return {
+            kind: "ClassDeclaration",
+            name,
+            superClass,
+            implements: implementsTraits.length > 0 ? implementsTraits : undefined,
+            members,
+        };
+    }
+
+    private parseClassMember(): AST.ClassMember {
+        const name = this.consume(SyntaxKind.Identifier).text;
+        if (this.current().kind === SyntaxKind.OpenParen) {
+            // Method
+            this.consume(SyntaxKind.OpenParen);
+            const params: string[] = [];
+            if (this.current().kind !== SyntaxKind.CloseParen) {
+                do {
+                    params.push(this.consume(SyntaxKind.Identifier).text);
+                } while (this.optionalConsume(SyntaxKind.Comma));
+            }
+            this.consume(SyntaxKind.CloseParen);
+            const body = this.parseBlockOrStatement();
+            return { kind: "MethodDefinition", name, params, body };
+        }
+        // Property
+        let value: AST.Expression | undefined;
+        if (this.optionalConsume(SyntaxKind.Equal)) {
+            value = this.parseExpression();
+        }
+        this.optionalConsume(SyntaxKind.Semicolon);
+        return { kind: "PropertyDefinition", name, value };
+    }
+
+    private parseTraitDeclaration(): AST.TraitDeclaration {
+        this.consume(SyntaxKind.Trait);
+        const name = this.consume(SyntaxKind.Identifier).text;
+
+        this.consume(SyntaxKind.OpenBrace);
+        const members: AST.TraitMember[] = [];
+        while (this.current().kind !== SyntaxKind.CloseBrace && this.current().kind !== SyntaxKind.EndOfFile) {
+            members.push(this.parseTraitMember());
+        }
+        this.consume(SyntaxKind.CloseBrace);
+
+        return { kind: "TraitDeclaration", name, members };
+    }
+
+    private parseTraitMember(): AST.TraitMember {
+        const name = this.consume(SyntaxKind.Identifier).text;
+        this.consume(SyntaxKind.OpenParen);
+        const params: string[] = [];
+        if (this.current().kind !== SyntaxKind.CloseParen) {
+            do {
+                params.push(this.consume(SyntaxKind.Identifier).text);
+            } while (this.optionalConsume(SyntaxKind.Comma));
+        }
+        this.consume(SyntaxKind.CloseParen);
+
+        let body: AST.Statement | undefined;
+        if (this.current().kind === SyntaxKind.OpenBrace) {
+            body = this.parseBlockOrStatement();
+        } else {
+            this.optionalConsume(SyntaxKind.Semicolon);
+        }
+
+        return { kind: "TraitMember", name, params, body };
     }
 
     private parseBlockOrStatement(): AST.Statement {
         if (this.current().kind === SyntaxKind.OpenBrace) {
-            // Simplification: just parse the expression inside as a statement
-            this.consume(SyntaxKind.OpenBrace);
-            const stmt = this.parseStatement()!;
-            this.consume(SyntaxKind.CloseBrace);
-            return stmt;
+            return this.parseBlock();
         }
         return this.parseStatement()!;
     }
@@ -114,19 +211,70 @@ export class Parser {
             if (opPrecedence <= precedence) break;
 
             this.pos++;
-            const right = this.parseExpression(opPrecedence);
-            left = {
-                kind: "BinaryExpression",
-                left,
-                operator: token.kind,
-                right,
-            };
+            const right = this.parseExpression(opPrecedence - (this.isAssignmentOperator(token.kind) ? 1 : 0));
+            if (this.isAssignmentOperator(token.kind)) {
+                left = {
+                    kind: "AssignmentExpression",
+                    left,
+                    operator: token.kind,
+                    right,
+                };
+            } else {
+                left = {
+                    kind: "BinaryExpression",
+                    left,
+                    operator: token.kind,
+                    right,
+                };
+            }
         }
 
         return left;
     }
 
+    private isAssignmentOperator(kind: SyntaxKind): boolean {
+        return (
+            kind === SyntaxKind.Equal ||
+            kind === SyntaxKind.PlusEqual ||
+            kind === SyntaxKind.MinusEqual ||
+            kind === SyntaxKind.StarEqual ||
+            kind === SyntaxKind.SlashEqual
+        );
+    }
+
     private parsePrimary(): AST.Expression {
+        let expr = this.parseBasePrimary();
+
+        while (true) {
+            if (this.optionalConsume(SyntaxKind.Dot)) {
+                const property = this.consume(SyntaxKind.Identifier).text;
+                expr = {
+                    kind: "MemberExpression",
+                    object: expr,
+                    property,
+                };
+            } else if (this.optionalConsume(SyntaxKind.OpenParen)) {
+                const args: AST.Expression[] = [];
+                if (this.current().kind !== SyntaxKind.CloseParen) {
+                    do {
+                        args.push(this.parseExpression());
+                    } while (this.optionalConsume(SyntaxKind.Comma));
+                }
+                this.consume(SyntaxKind.CloseParen);
+                expr = {
+                    kind: "CallExpression",
+                    callee: expr,
+                    arguments: args,
+                };
+            } else {
+                break;
+            }
+        }
+
+        return expr;
+    }
+
+    private parseBasePrimary(): AST.Expression {
         const token = this.current();
         this.pos++;
 

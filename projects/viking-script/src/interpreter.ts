@@ -36,8 +36,86 @@ export class Environment {
     }
 }
 
+export class VikingClass {
+    constructor(
+        public name: string,
+        public superClass: VikingClass | undefined,
+        public traits: VikingTrait[],
+        public members: AST.ClassMember[],
+        public env: Environment,
+    ) {}
+
+    public getMethod(name: string): AST.MethodDefinition | AST.TraitMember | undefined {
+        // 1. Check own methods
+        const method = this.members.find((m) => m.kind === "MethodDefinition" && m.name === name) as
+            | AST.MethodDefinition
+            | undefined;
+        if (method) return method;
+
+        // 2. Check superclass methods
+        if (this.superClass) {
+            const superMethod = this.superClass.getMethod(name);
+            if (superMethod) return superMethod;
+        }
+
+        // 3. Check trait default methods
+        for (const trait of this.traits) {
+            const traitMethod = trait.members.find((m) => m.name === name && m.body);
+            if (traitMethod) return traitMethod;
+        }
+
+        return undefined;
+    }
+}
+
+export class VikingInstance {
+    private properties: Map<string, any> = new Map();
+
+    constructor(public klass: VikingClass) {
+        // Initialize properties from class and superclasses
+        this.initializeProperties(klass);
+    }
+
+    private initializeProperties(klass: VikingClass) {
+        if (klass.superClass) {
+            this.initializeProperties(klass.superClass);
+        }
+        for (const member of klass.members) {
+            if (member.kind === "PropertyDefinition") {
+                const interpreter = new Interpreter(klass.env);
+                this.properties.set(member.name, member.value ? interpreter.evaluate(member.value) : null);
+            }
+        }
+    }
+
+    public get(name: string): any {
+        if (this.properties.has(name)) return this.properties.get(name);
+        const method = this.klass.getMethod(name);
+        if (method) {
+            return (...args: any[]) => {
+                const methodEnv = new Environment(this.klass.env);
+                methodEnv.define("self", this);
+                for (let i = 0; i < method.params.length; i++) {
+                    methodEnv.define(method.params[i], args[i]);
+                }
+                const interpreter = new Interpreter(methodEnv);
+                return interpreter.execute(method.body!);
+            };
+        }
+        throw new Error(`Undefined property or method: ${name}`);
+    }
+
+    public set(name: string, value: any): void {
+        this.properties.set(name, value);
+    }
+}
+
+export class VikingTrait {
+    constructor(public name: string, public members: AST.TraitMember[]) {}
+}
+
 export class Interpreter {
-    private env: Environment;
+    public env: Environment;
 
     constructor(env: Environment = new Environment()) {
         this.env = env;
@@ -51,7 +129,7 @@ export class Interpreter {
         return result;
     }
 
-    private execute(stmt: AST.Statement): any {
+    public execute(stmt: AST.Statement): any {
         switch (stmt.kind) {
             case "LetStatement":
                 this.env.define(stmt.name, this.evaluate(stmt.value));
@@ -67,27 +145,61 @@ export class Interpreter {
                     return this.execute(stmt.elseBranch);
                 }
                 return null;
-            case "WhileStatement":
-                while (this.evaluate(stmt.condition)) {
-                    this.execute(stmt.body);
+            case "BlockStatement": {
+                let result: any = null;
+                for (const s of stmt.body) {
+                    result = this.execute(s);
                 }
-                return null;
-            case "ForStatement": {
-                const iterable = this.evaluate(stmt.iterable);
-                if (Array.isArray(iterable)) {
-                    for (const item of iterable) {
-                        const innerEnv = new Environment(this.env);
-                        innerEnv.define(stmt.iterator, item);
-                        const interpreter = new Interpreter(innerEnv);
-                        interpreter.execute(stmt.body);
+                return result;
+            }
+            case "LoopStatement": {
+                if (stmt.iterable && stmt.pattern) {
+                    const iterable = this.evaluate(stmt.iterable);
+                    if (Array.isArray(iterable)) {
+                        for (const item of iterable) {
+                            const innerEnv = new Environment(this.env);
+                            innerEnv.define(stmt.pattern, item);
+                            const interpreter = new Interpreter(innerEnv);
+                            interpreter.execute(stmt.body);
+                        }
+                    }
+                } else {
+                    while (true) {
+                        this.execute(stmt.body);
                     }
                 }
+                return null;
+            }
+            case "ClassDeclaration": {
+                const superClass = stmt.superClass ? this.env.get(stmt.superClass) : undefined;
+                if (superClass && !(superClass instanceof VikingClass)) {
+                    throw new Error(`Superclass ${stmt.superClass} is not a class`);
+                }
+
+                const traits: VikingTrait[] = [];
+                if (stmt.implements) {
+                    for (const traitName of stmt.implements) {
+                        const trait = this.env.get(traitName);
+                        if (!(trait instanceof VikingTrait)) {
+                            throw new Error(`Trait ${traitName} is not a trait`);
+                        }
+                        traits.push(trait);
+                    }
+                }
+
+                const klass = new VikingClass(stmt.name, superClass, traits, stmt.members, this.env);
+                this.env.define(stmt.name, klass);
+                return null;
+            }
+            case "TraitDeclaration": {
+                const trait = new VikingTrait(stmt.name, stmt.members);
+                this.env.define(stmt.name, trait);
                 return null;
             }
         }
     }
 
-    private evaluate(expr: AST.Expression): any {
+    public evaluate(expr: AST.Expression): any {
         switch (expr.kind) {
             case "Literal":
                 return expr.value;
@@ -135,14 +247,38 @@ export class Interpreter {
             case "CallExpression": {
                 const callee = this.evaluate(expr.callee);
                 const args = expr.arguments.map((arg) => this.evaluate(arg));
+
+                if (callee instanceof VikingClass) {
+                    return new VikingInstance(callee);
+                }
+
                 if (typeof callee === "function") {
                     return callee(...args);
                 }
-                throw new Error("Callee is not a function");
+                throw new Error("Callee is not a function or class");
             }
             case "MemberExpression": {
                 const object = this.evaluate(expr.object);
+                if (object instanceof VikingInstance) {
+                    return object.get(expr.property);
+                }
                 return object[expr.property];
+            }
+            case "AssignmentExpression": {
+                const right = this.evaluate(expr.right);
+                if (expr.left.kind === "Identifier") {
+                    this.env.assign(expr.left.name, right);
+                    return right;
+                } else if (expr.left.kind === "MemberExpression") {
+                    const object = this.evaluate(expr.left.object);
+                    if (object instanceof VikingInstance) {
+                        object.set(expr.left.property, right);
+                        return right;
+                    }
+                    object[expr.left.property] = right;
+                    return right;
+                }
+                throw new Error("Invalid assignment target");
             }
         }
     }

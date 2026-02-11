@@ -12,8 +12,22 @@ export type Statement =
     | ExpressionStatement
     | ReturnStatement
     | IfStatement
-    | ForStatement
-    | WhileStatement;
+    | LoopStatement
+    | ClassDeclaration
+    | TraitDeclaration
+    | BlockStatement;
+
+export interface BlockStatement {
+    kind: "BlockStatement";
+    body: Statement[];
+}
+
+export interface LoopStatement {
+    kind: "LoopStatement";
+    pattern?: string;
+    iterable?: Expression;
+    body: BlockStatement;
+}
 
 export interface LetStatement {
     kind: "LetStatement";
@@ -38,17 +52,41 @@ export interface IfStatement {
     elseBranch?: Statement;
 }
 
-export interface ForStatement {
-    kind: "ForStatement";
-    iterator: string;
-    iterable: Expression;
+export interface ClassDeclaration {
+    kind: "ClassDeclaration";
+    name: string;
+    superClass?: string;
+    implements?: string[];
+    members: ClassMember[];
+}
+
+export type ClassMember = MethodDefinition | PropertyDefinition;
+
+export interface MethodDefinition {
+    kind: "MethodDefinition";
+    name: string;
+    params: string[];
     body: Statement;
 }
 
-export interface WhileStatement {
-    kind: "WhileStatement";
-    condition: Expression;
-    body: Statement;
+export interface PropertyDefinition {
+    kind: "PropertyDefinition";
+    name: string;
+    value?: Expression;
+}
+
+export interface TraitDeclaration {
+    kind: "TraitDeclaration";
+    name: string;
+    members: TraitMember[];
+}
+
+export interface TraitMember {
+    kind: "TraitMember";
+    name: string;
+    params: string[];
+    // body is optional for traits
+    body?: Statement;
 }
 
 export type Expression =
@@ -57,7 +95,15 @@ export type Expression =
     | BinaryExpression
     | UnaryExpression
     | CallExpression
-    | MemberExpression;
+    | MemberExpression
+    | AssignmentExpression;
+
+export interface AssignmentExpression {
+    kind: "AssignmentExpression";
+    left: Expression;
+    operator: SyntaxKind;
+    right: Expression;
+}
 
 export interface IdentifierExpression {
     kind: "Identifier";

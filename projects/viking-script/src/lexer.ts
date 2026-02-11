@@ -225,6 +225,8 @@ const KEYWORDS: Record<string, SyntaxKind> = {
     break: SyntaxKind.Break,
     continue: SyntaxKind.Continue,
     type: SyntaxKind.Type,
+    extends: SyntaxKind.Extends,
+    implements: SyntaxKind.Implements,
     as: SyntaxKind.As,
     is: SyntaxKind.Is,
     in: SyntaxKind.In,
